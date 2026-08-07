@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "searxng": {
+      "command": "/home/YOUR_USERNAME/.local/bin/searxng-mcp",
+      "env": {
+        "SEARXNG_URL": "http://localhost:8888",
+        "RUST_LOG": "info"
+      }
+    }
+  }
+}
