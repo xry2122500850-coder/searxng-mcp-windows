@@ -5,17 +5,13 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - name: Install Rust
@@ -23,10 +19,14 @@ jobs:
       with:
         toolchain: stable
         override: true
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
     - name: Build release
       run: cargo build --release --verbose
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
-        name: searxng-mcp-${{ matrix.os }}
-        path: target/release/searxng-mcp*
+        name: searxng-mcp
+        path: target/release/searxng-mcp
