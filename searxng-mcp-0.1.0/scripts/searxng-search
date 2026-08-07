@@ -1,0 +1,174 @@
+#!/bin/bash
+# SearXNG Search Tool for MCP Clients
+# 
+# This script provides a CLI interface for SearXNG web search and content fetching.
+# It can be used standalone or integrated with MCP-compatible clients like Clawdbot.
+#
+# Usage:
+#   searxng-search search "query" [count] [freshness] [lang]
+#   searxng-search fetch "url" [max_chars]
+#
+# Environment:
+#   SEARXNG_URL - SearXNG endpoint (default: http://localhost:8888)
+#   SEARXNG_CACHE_TTL - Cache TTL in minutes (default: 15)
+
+set -e
+
+# Configuration
+SEARXNG_URL="${SEARXNG_URL:-http://localhost:8888}"
+CACHE_TTL="${SEARXNG_CACHE_TTL:-15}"
+CACHE_DIR="${HOME}/.cache/searxng-search"
+
+# Ensure cache directory exists
+mkdir -p "${CACHE_DIR}"
+
+# Generate cache key
+cache_key() {
+    echo "$*" | md5sum | cut -d' ' -f1
+}
+
+# Check cache
+check_cache() {
+    local key="$1"
+    local cache_file="${CACHE_DIR}/${key}.json"
+    if [[ -f "${cache_file}" ]]; then
+        local age=$(( ($(date +%s) - $(stat -c %Y "${cache_file}" 2>/dev/null || stat -f %m "${cache_file}" 2>/dev/null || echo 0)) / 60 ))
+        if [[ ${age} -lt ${CACHE_TTL} ]]; then
+            cat "${cache_file}"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Save cache
+save_cache() {
+    local key="$1"
+    local data="$2"
+    echo "${data}" > "${CACHE_DIR}/${key}.json"
+}
+
+# Map freshness to time_range
+map_freshness() {
+    case "$1" in
+        day|pd) echo "day" ;;
+        week|pw) echo "week" ;;
+        month|pm) echo "month" ;;
+        year|py) echo "year" ;;
+        *) echo "" ;;
+    esac
+}
+
+# Web search
+web_search() {
+    local query="$1"
+    local count="${2:-10}"
+    local freshness="$3"
+    local lang="$4"
+    
+    # Validate count
+    if ! [[ "$count" =~ ^[0-9]+$ ]]; then
+        count=10
+    fi
+    [[ $count -lt 1 ]] && count=1
+    [[ $count -gt 50 ]] && count=50
+    
+    # Check cache
+    local key=$(cache_key "search" "$query" "$count" "$freshness" "$lang")
+    local cached
+    if cached=$(check_cache "$key"); then
+        echo "$cached"
+        return 0
+    fi
+    
+    # Build URL
+    local time_range=$(map_freshness "$freshness")
+    local url="${SEARXNG_URL}/search?q=$(printf '%s' "$query" | jq -sRr @uri)&format=json"
+    [[ -n "$time_range" ]] && url="${url}&time_range=${time_range}"
+    [[ -n "$lang" ]] && url="${url}&language=${lang}"
+    
+    # Call SearXNG
+    local response=$(curl -s "${url}" --max-time 30)
+    
+    # Format results
+    local json_result=$(echo "$response" | jq -r --arg query "$query" --argjson count "$count" '
+    {
+        query: $query,
+        results: [(.results[:$count] | .[] | {title: .title, url: .url, snippet: .content})],
+        provider: "searxng",
+        cached: false,
+        total: (.results | length)
+    }')
+    
+    # Cache and return
+    save_cache "$key" "$json_result"
+    echo "$json_result"
+}
+
+# Web fetch
+web_fetch() {
+    local url="$1"
+    local max_chars="${2:-50000}"
+    
+    # Validate
+    if ! [[ "$max_chars" =~ ^[0-9]+$ ]]; then
+        max_chars=50000
+    fi
+    
+    # Check cache
+    local key=$(cache_key "fetch" "$url" "$max_chars")
+    local cached
+    if cached=$(check_cache "$key"); then
+        echo "$cached"
+        return 0
+    fi
+    
+    # Fetch URL content
+    local content=$(curl -sL "$url" --max-time 30 2>/dev/null | \
+        sed 's/<script[^>]*>//g; s/<\/script>//g' | \
+        sed 's/<style[^>]*>//g; s/<\/style>//g' | \
+        sed 's/<[^>]*>//g' | \
+        tr -s ' \n\t' ' ' | \
+        head -c "$max_chars")
+    
+    # Format JSON
+    local json_result=$(jq -n \
+        --arg url "$url" \
+        --arg content "$content" \
+        --argjson truncated "$((${#content} >= max_chars ? true : false))" \
+        '{
+            url: $url,
+            content: $content,
+            mode: "text",
+            truncated: $truncated,
+            provider: "searxng"
+        }')
+    
+    # Cache and return
+    save_cache "$key" "$json_result"
+    echo "$json_result"
+}
+
+# Main
+case "$1" in
+    search)
+        shift
+        web_search "$@"
+        ;;
+    fetch)
+        shift
+        web_fetch "$@"
+        ;;
+    *)
+        echo "Usage: $0 {search|fetch} [args...]" >&2
+        echo "" >&2
+        echo "  search <query> [count] [freshness] [lang]  - Search the web" >&2
+        echo "  fetch <url> [max_chars]                    - Fetch URL content" >&2
+        echo "" >&2
+        echo "Examples:" >&2
+        echo "  $0 search \"rust programming\" 10" >&2
+        echo "  $0 search \"latest news\" 5 week" >&2
+        echo "  $0 fetch \"https://example.com\" 5000" >&2
+        exit 1
+        ;;
+esac
