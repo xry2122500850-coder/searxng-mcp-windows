@@ -1,0 +1,153 @@
+# SearXNG Configuration - Comprehensive Search Setup
+use_default_settings: true
+
+general:
+  instance_name: "MCP Search"
+
+server:
+  secret_key: "mcp-search-secret-key-change-in-production"
+  limiter: false
+  image_proxy: false
+  port: 8080
+  bind_address: "0.0.0.0"
+
+search:
+  safe_search: 0
+  autocomplete: "duckduckgo"
+  formats:
+    - html
+    - json
+    - csv
+    - rss
+
+# Enable comprehensive search engines
+engines:
+  # General Search
+  - name: google
+    engine: google
+    disabled: false
+    shortcut: go
+
+  - name: bing
+    engine: bing
+    disabled: false
+    shortcut: bi
+
+  - name: duckduckgo
+    engine: duckduckgo
+    disabled: false
+    shortcut: ddg
+
+  - name: brave
+    engine: brave
+    disabled: false
+    shortcut: br
+
+  - name: qwant
+    engine: qwant
+    disabled: false
+    shortcut: qw
+
+  - name: mojeek
+    engine: mojeek
+    disabled: false
+    shortcut: mj
+
+  - name: startpage
+    engine: startpage
+    disabled: false
+    shortcut: sp
+
+  # News
+  - name: bing news
+    engine: bing_news
+    disabled: false
+    shortcut: bin
+
+  - name: google news
+    engine: google_news
+    disabled: false
+    shortcut: gon
+
+  - name: qwant news
+    engine: qwant
+    disabled: false
+    shortcut: qwn
+    categories: news
+
+  # Images
+  - name: bing images
+    engine: bing_images
+    disabled: false
+    shortcut: bii
+
+  - name: google images
+    engine: google_images
+    disabled: false
+    shortcut: goi
+
+  - name: duckduckgo images
+    engine: duckduckgo_images
+    disabled: false
+    shortcut: ddi
+
+  # Videos
+  - name: bing videos
+    engine: bing_videos
+    disabled: false
+    shortcut: biv
+
+  - name: google videos
+    engine: google_videos
+    disabled: false
+    shortcut: gov
+
+  - name: youtube
+    engine: youtube_noapi
+    disabled: false
+    shortcut: yt
+
+  # Technical
+  - name: github
+    engine: github
+    disabled: false
+    shortcut: gh
+
+  - name: gitlab
+    engine: gitlab
+    disabled: false
+    shortcut: gl
+
+  - name: stackoverflow
+    engine: stackoverflow
+    disabled: false
+    shortcut: so
+
+  - name: wikipedia
+    engine: wikipedia
+    disabled: false
+    shortcut: wp
+
+  # Files
+  - name: piratebay
+    engine: piratebay
+    disabled: true
+    shortcut: tpb
+
+  # Social
+  - name: reddit
+    engine: reddit
+    disabled: false
+    shortcut: re
+
+  - name: hackernews
+    engine: hackernews
+    disabled: false
+    shortcut: hn
+
+outgoing:
+  request_timeout: 15.0
+  max_request_timeout: 30.0
+  pool_connections: 100
+  pool_maxsize: 20
+  enable_http2: true
